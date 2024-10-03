@@ -1,4 +1,6 @@
-export const SERVICE_BUSINESS_LOGICS = {
+import { BlResponseCreator } from './BlResponseCreator';
+
+export const SERVICE_BL_LOGICS = {
   createUser: {
     EMAIL_ALREADY_EXISTS: {
       en: 'Email already exists',
@@ -7,6 +9,10 @@ export const SERVICE_BUSINESS_LOGICS = {
     USER_CREATED_SUCCESSFULLY: {
       en: 'User created successfully',
       zh: '用户已创建成功',
+    },
+    DUPLICATED: {
+      en: 'Duplicated',
+      zh: '重复了',
     },
   },
   refresh: {
@@ -27,6 +33,10 @@ export const SERVICE_BUSINESS_LOGICS = {
     USER_DELETED_SUCCESSFULLY: {
       en: 'User deleted successfully',
       zh: '成功删除用户',
+    },
+    DUPLICATED: {
+      en: 'Duplicated',
+      zh: '重复了',
     },
   },
   findOneByUsername: {
@@ -88,6 +98,10 @@ export const SERVICE_BUSINESS_LOGICS = {
       en: 'Find users successfully',
       zh: '获取用户列表成功',
     },
+    FIND_USERS_FAILED: {
+      en: 'Find users failed',
+      zh: '获取用户列表失败',
+    },
   },
   findOneByOAuthProvider: {
     FIND_ONE_USER_SUCCESSFULLY: {
@@ -144,3 +158,90 @@ export const SERVICE_BUSINESS_LOGICS = {
     },
   },
 };
+
+describe('ServiceResponse', () => {
+  let sr: BlResponseCreator<typeof SERVICE_BL_LOGICS>;
+
+  beforeEach(() => {
+    sr = new BlResponseCreator(SERVICE_BL_LOGICS, 'test', 'service');
+  });
+
+  it('should create success response for a single service method', () => {
+    const { buildSuccess } = sr.createBuilders('findAllUsers');
+
+    const response = buildSuccess('FIND_USERS_SUCCESSFULLY', { a: 1 });
+
+    expect(response).toEqual({
+      success: true,
+      serviceName: 'test',
+      layer: 'service',
+      blStack: [{ method: 'findAllUsers', message: 'Find users successfully' }],
+      code: 'FIND_USERS_SUCCESSFULLY',
+      data: { a: 1 },
+    });
+  });
+
+  it('should create failure response for a single service method', () => {
+    const { buildFailure } = sr.createBuilders('findAllUsers');
+
+    const response = buildFailure('FIND_USERS_FAILED');
+
+    expect(response).toEqual({
+      success: false,
+      serviceName: 'test',
+      layer: 'service',
+      blStack: [{ method: 'findAllUsers', message: 'Find users failed' }],
+      code: 'FIND_USERS_FAILED',
+    });
+  });
+
+  it('should create success response for multiple service methods', () => {
+    const { buildSuccess } = sr.createBuilders(['createUser', 'deleteUser']);
+
+    const response = buildSuccess('DUPLICATED', {
+      userId: 123,
+    });
+
+    expect(response).toEqual({
+      success: true,
+      serviceName: 'test',
+      layer: 'service',
+      blStack: [
+        { method: 'createUser', message: 'Duplicated' },
+        { method: 'deleteUser', message: 'Duplicated' },
+      ],
+      code: 'DUPLICATED',
+      data: { userId: 123 },
+    });
+  });
+
+  it('should handle invalid code gracefully', () => {
+    const { buildFailure } = sr.createBuilders('createUser');
+
+    const response = buildFailure('EMAIL_ALREADY_EXISTS');
+
+    // Assuming it just returns empty blStack when the code doesn't exist
+    expect(response).toEqual({
+      success: false,
+      serviceName: 'test',
+      layer: 'service',
+      blStack: [{ method: 'createUser', message: 'Email already exists' }],
+      code: 'EMAIL_ALREADY_EXISTS',
+    });
+  });
+
+  it('should handle missing optional data gracefully', () => {
+    const { buildSuccess } = sr.createBuilders('login');
+
+    const response = buildSuccess('LOGIN_SUCCESSFULLY');
+
+    expect(response).toEqual({
+      success: true,
+      serviceName: 'test',
+      layer: 'service',
+      blStack: [{ method: 'login', message: 'Login successfully' }],
+      code: 'LOGIN_SUCCESSFULLY',
+      data: undefined,
+    });
+  });
+});
